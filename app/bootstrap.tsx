@@ -1,5 +1,6 @@
 import { hydrateRoot } from "react-dom/client";
-import { Button } from "./Button";
+import { Button as LikeButton } from "./like/Button";
+import { Button } from "./share/Button";
 
 const albums = [
   {
@@ -27,9 +28,10 @@ hydrateRoot(
         <li key={album.id}>
           <h3>{album.title}</h3>
           <p>{album.songs} songs</p>
+          <LikeButton />
+          <Button />
         </li>
       ))}
     </ul>
-    <Button />
   </>
 );

@@ -11,6 +11,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "es-module-lexer": "^1.4.1",
     "esbuild": "^0.20.1",
     "react": "canary",
     "react-dom": "canary"

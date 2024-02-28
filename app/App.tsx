@@ -1,18 +1,27 @@
-import { Suspense } from "react";
-import { Button } from "./Button";
+import { Wrapper } from "./ButtonWrapper";
+import { Button } from "./share/Button";
 
 export function App() {
   return (
     <html>
       <head>
         <title>Hell world</title>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+            body {
+              background-color: black;
+              color: white;
+            }
+          `,
+          }}
+        />
       </head>
       <body>
         {/* <Suspense fallback={<p>Loading...</p>}> */}
         {/* @ts-expect-error */}
         <Albums />
         {/* </Suspense> */}
-        <Button />
       </body>
     </html>
   );
@@ -26,6 +35,8 @@ async function Albums() {
         <li key={album.id}>
           <h3>{album.title}</h3>
           <p>{album.songs} songs</p>
+          <Wrapper />
+          <Button />
         </li>
       ))}
     </ul>
