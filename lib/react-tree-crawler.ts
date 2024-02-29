@@ -1,44 +1,93 @@
-import type { FC, ReactElement, ReactNode } from "react";
-import React from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 
-export async function traverseJsx(jsx: ReactNode): Promise<ReactNode> {
+interface OperationMap {
+  primitive: (
+    jsx: string | number | boolean | null | undefined,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+  array: (
+    jsx: any[],
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+  props: (
+    jsx: object,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+  native: (
+    jsx: ReactElement,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+  server: (
+    jsx: ReactElement,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+  client: (
+    jsx: ReactElement,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
+}
+
+export const defaultOperations: OperationMap = {
+  primitive: async (jsx) => jsx,
+  array: (jsx, next) => Promise.all(jsx.map((child) => next(child))),
+  props: async (jsx, next) =>
+    Object.fromEntries(
+      await Promise.all(
+        Object.entries(jsx).map(async ([propName, value]) => [
+          propName,
+          await next(value),
+        ])
+      )
+    ),
+  native: async (jsx, next) => ({
+    ...jsx,
+    props: await next(jsx.props),
+  }),
+  server: async (jsx, next) => {
+    const returnedJsx = await (jsx.type as any)(jsx.props);
+    return next(returnedJsx);
+  },
+  client: async (jsx, next) => ({
+    ...jsx,
+    props: await next(jsx.props),
+  }),
+};
+
+export async function crawl(
+  jsx: ReactNode,
+  operationMap: Partial<OperationMap> = {}
+): Promise<ReactNode> {
+  const operations = {
+    ...defaultOperations,
+    ...operationMap,
+  };
+  const next = (jsx: ReactNode) => crawl(jsx, operations);
   switch (true) {
     case typeof jsx === "string":
     case typeof jsx === "number":
     case typeof jsx === "boolean":
-    case jsx == null:
-      // Don't need to do anything special with these types.
-      return jsx;
+    case jsx === null:
+    case jsx === undefined:
+      return operations.primitive(jsx, next);
 
     case Array.isArray(jsx):
-      // Process each item in an array.
-      return Promise.all(jsx.map((child) => traverseJsx(child)));
+      return operations.array(jsx, next);
 
-    case React.isValidElement(jsx):
+    case jsx != null && "type" in jsx:
       if (typeof jsx.type === "string") {
-        // This is a component like <div />.
-        // Go over its props to make sure they can be turned into JSON.
-        return {
-          ...jsx,
-          props: await traverseJsx(jsx.props),
-        };
+        return operations.native(jsx, next);
       }
       if (typeof jsx.type === "function") {
-        return treatFunctionComponent(jsx);
+        const Component = jsx.type as any;
+        if (Component.$$typeof !== Symbol.for("react.client.reference")) {
+          return operations.server(jsx, next);
+        }
+        return operations.client(jsx, next);
       }
       throw new Error("not implemented.");
 
     case jsx != null && typeof jsx === "object":
-      // This is an arbitrary object (for example, props, or something inside of them).
-      // Go over every value inside, and process it too in case there's some JSX in it.
-      return Object.fromEntries(
-        await Promise.all(
-          Object.entries(jsx).map(async ([propName, value]) => [
-            propName,
-            await traverseJsx(value),
-          ])
-        )
-      );
+      return operations.props(jsx, next);
 
     case typeof jsx === "function":
       throw new Error("functions are not serializable");
@@ -46,26 +95,4 @@ export async function traverseJsx(jsx: ReactNode): Promise<ReactNode> {
     default:
       throw new Error("not implemented");
   }
-}
-
-async function treatFunctionComponent(jsx: ReactElement) {
-  // This is a custom React component (like <Footer />).
-  // Call its function, and repeat the procedure for the JSX it returns.
-  const Component = jsx.type as any;
-  const props: object = jsx.props;
-
-  console.log(jsx);
-  if (Component.$$typeof !== Symbol.for("react.client.reference")) {
-    // server component, unwrap
-    const returnedJsx = await Component(props);
-    return traverseJsx(returnedJsx);
-  }
-
-  return {
-    ...jsx,
-    // send component id to client jsx and find a way to get it in the bundle
-    type: Component.$$id,
-    // same as with <div/> elements, go over its props
-    props: await traverseJsx(jsx.props),
-  };
 }

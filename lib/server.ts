@@ -1,17 +1,22 @@
 import { renderToReadableStream } from "react-dom/server";
 import { createElement } from "react";
-import { App } from "../app/App";
 import { file } from "bun";
 import { bundle } from "./bundler";
-import { traverseJsx } from "./react-tree-crawler";
+import { crawl } from "./react-tree-crawler";
 
 await bundle();
-const bundled = await import("../public/build/App");
-console.log(await traverseJsx(createElement(bundled.App)));
+const bundled = await import("../.build/App");
+const resolvedTree = await crawl(createElement(bundled.App));
+const resolvedJsx = await crawl(resolvedTree, {
+  client: async (jsx, next) => ({
+    ...jsx,
+    type: (jsx.type as any).$$id,
+    props: await next(jsx.props),
+  }),
+});
 const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
-    console.log(url.pathname);
     if (url.pathname.startsWith("/public/")) {
       // static
       return new Response(file(`.${url.pathname}`), {
@@ -20,11 +25,19 @@ const server = Bun.serve({
         },
       });
     }
+    if (url.pathname === "/_client-tree.json") {
+      return new Response(
+        JSON.stringify(resolvedJsx, (key, value) => {
+          if (key === "$$typeof") {
+            return "react.element";
+          }
+          return value;
+        })
+      );
+    }
     try {
-      const stream = await renderToReadableStream(createElement(App), {
+      const stream = await renderToReadableStream(resolvedTree, {
         bootstrapModules: ["public/build/bootstrap.js"],
-        // @ts-expect-error
-        importMap: {},
       });
       return new Response(stream);
     } catch (e) {

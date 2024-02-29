@@ -5,7 +5,8 @@ import { parse } from "es-module-lexer";
 import { relative } from "node:path";
 
 const appDir = new URL("../app/", import.meta.url);
-const buildDir = new URL("../public/build/", import.meta.url);
+const serverBuildDir = new URL("../.build/", import.meta.url);
+const clientBuildDir = new URL("../public/build", import.meta.url);
 
 export async function bundle() {
   const clientEntryPoints = new Set<string>();
@@ -15,14 +16,13 @@ export async function bundle() {
     format: "esm",
     logLevel: "error",
     entryPoints: [resolveApp("App.tsx")],
-    outdir: resolveBuild(),
+    outdir: resolveServerBuild(),
     packages: "external",
     plugins: [
       {
         name: "@ben-holmes/resolve-client-imports",
         setup(build) {
           build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
-            console.log({ relativePath });
             const path = resolveApp(`${relativePath}.tsx`);
             const contents = await file(path).text();
             if (
@@ -40,18 +40,24 @@ export async function bundle() {
       },
     ],
   });
-  console.log(clientEntryPoints);
+
+  // await esbuild.build({
+  //   format: "esm",
+  //   logLevel: "error",
+  //   entryPoints: [resolveApp("bootstrap.tsx")],
+  //   outdir: resolveBuild(),
+  //   plugins: [],
+  // });
 
   const { outputFiles } = await esbuild.build({
     bundle: true,
     format: "esm",
     logLevel: "error",
-    entryPoints: [resolveApp("bootstrap.tsx"), ...clientEntryPoints],
-    outdir: resolveBuild(),
-    splitting: true,
+    entryPoints: [...clientEntryPoints],
+    outdir: resolveServerBuild(),
     plugins: [],
     write: false,
-    allowOverwrite: true,
+    packages: "external",
   });
 
   const clientComponentMap = new Map();
@@ -60,9 +66,12 @@ export async function bundle() {
     let newContents = ofile.text;
 
     exports.forEach((exp) => {
-      const key = `${relative(resolveBuild(), ofile.path)}#${exp.n}`;
+      const key = `/public/build/${relative(
+        resolveServerBuild(),
+        ofile.path
+      )}#${exp.n}`;
       clientComponentMap.set(key, {
-        id: "/build/" + ofile.path.split("/").pop(),
+        id: "public/build/" + ofile.path.split("/").pop(),
         name: exp.n,
         chunks: [],
         async: true,
@@ -70,17 +79,32 @@ export async function bundle() {
       newContents += `
     			${exp.ln}.$$typeof = Symbol.for('react.client.reference');
     			${exp.ln}.$$id = ${JSON.stringify(key)}
+    			${exp.ln}.displayName = ${JSON.stringify(exp.n)}
     		`;
     });
 
     await write(ofile.path, newContents);
   }
+
+  await esbuild.build({
+    bundle: true,
+    format: "esm",
+    logLevel: "error",
+    entryPoints: [resolveApp("bootstrap.tsx"), ...clientEntryPoints],
+    outdir: resolveClientBuild(),
+    plugins: [],
+    splitting: true,
+  });
 }
 
 function resolveApp(path = "") {
   return fileURLToPath(new URL(path, appDir));
 }
 
-function resolveBuild(path = "") {
-  return fileURLToPath(new URL(path, buildDir));
+function resolveServerBuild(path = "") {
+  return fileURLToPath(new URL(path, serverBuildDir));
+}
+
+function resolveClientBuild(path = "") {
+  return fileURLToPath(new URL(path, clientBuildDir));
 }
