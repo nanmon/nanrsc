@@ -19,6 +19,7 @@ export function App() {
       </head>
       <body>
         {/* <Suspense fallback={<p>Loading...</p>}> */}
+        <h1>My Albums</h1>
         {/* @ts-expect-error */}
         <Albums />
         {/* </Suspense> */}

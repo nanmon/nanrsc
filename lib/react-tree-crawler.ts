@@ -73,7 +73,7 @@ export async function crawl(
     case Array.isArray(jsx):
       return operations.array(jsx, next);
 
-    case jsx != null && "type" in jsx:
+    case jsx != null && typeof jsx === "object" && "type" in jsx:
       if (typeof jsx.type === "string") {
         return operations.native(jsx, next);
       }
