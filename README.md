@@ -6,7 +6,7 @@ Naive implementation of react server components.
 
 - [x] Server Components (async and not async)
 - [x] Client Components ('use client')
-- [ ] Server Actions
+- [x] Server Actions
 - [ ] Router
 
 ## Install and run

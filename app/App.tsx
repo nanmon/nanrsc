@@ -1,4 +1,5 @@
 import { Wrapper } from "./ButtonWrapper";
+import { NewAlbumButton } from "./NewAlbumButton";
 import { Button } from "./share/Button";
 
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
         {/* @ts-expect-error */}
         <Albums />
         {/* </Suspense> */}
+        <NewAlbumButton />
       </body>
     </html>
   );
@@ -45,7 +47,7 @@ async function Albums() {
 }
 
 async function getAlbums() {
-  // await new Promise((resolve) => setTimeout(resolve, 3000));
+  await new Promise((resolve) => setTimeout(resolve, 200));
   return [
     {
       id: 1,
