@@ -5,15 +5,15 @@ import { bundle } from "./bundler";
 import { crawl } from "./react-tree-crawler";
 
 const { App } = await bundle();
-const resolvedTree = await crawl(createElement(App));
-const resolvedJsx = await crawl(resolvedTree, {
+const serverApp = await crawl(createElement(App));
+const clientApp = await crawl(serverApp, {
   client: async (jsx, next) => ({
     ...jsx,
     type: (jsx.type as any).$$id,
     props: await next(jsx.props),
   }),
 });
-const bodyContents = (resolvedJsx as ReactElement).props.children[1].props
+const bodyContents = (clientApp as ReactElement).props.children[1].props
   .children;
 const clientJson = JSON.stringify(bodyContents, function (key, value) {
   if (key === "$$typeof") return "react.element";
@@ -36,7 +36,7 @@ const server = Bun.serve({
       return new Response(clientJson);
     }
     try {
-      const stream = await renderToReadableStream(resolvedTree, {
+      const stream = await renderToReadableStream(serverApp, {
         bootstrapModules: [".build/client/lib/bootstrap.client.js"],
       });
       return new Response(stream);
