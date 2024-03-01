@@ -20,3 +20,10 @@ To run:
 ```bash
 bun run lib/server.ts
 ```
+
+## Project structure
+
+For the moment is really badly structured
+
+- `/lib` is the actual RSC server
+- `/app` is example app code that is being served
