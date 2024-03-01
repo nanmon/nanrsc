@@ -4,7 +4,7 @@ import { file } from "bun";
 import { bundle } from "./bundler";
 import { crawl } from "./react-tree-crawler";
 
-const { App, actions } = await bundle();
+const { App } = await bundle();
 const serverApp = await crawl(createElement(App));
 const clientApp = await crawl(serverApp, {
   client: async (jsx, next) => ({
@@ -48,15 +48,18 @@ const server = Bun.serve({
         },
       });
     }
-    try {
-      const stream = await renderToReadableStream(serverApp, {
-        bootstrapModules: [".build/client/lib/bootstrap.client.js"],
-      });
-      return new Response(stream);
-    } catch (e) {
-      console.error(e);
-      return new Response("error :c");
+    if (url.pathname === "/") {
+      try {
+        const stream = await renderToReadableStream(serverApp, {
+          bootstrapModules: [".build/client/lib/bootstrap.client.js"],
+        });
+        return new Response(stream);
+      } catch (e) {
+        console.error(e);
+        return new Response("error :c");
+      }
     }
+    return new Response("error");
   },
 });
 

@@ -7,7 +7,7 @@ export function NewAlbumButton() {
   const [newAlbums, setNewAlbums] = useState<any[]>([]);
 
   const handleAdd = async () => {
-    const album = await newAlbum();
+    const album = await newAlbum(3);
     setNewAlbums((prev) => [...prev, album]);
   };
 

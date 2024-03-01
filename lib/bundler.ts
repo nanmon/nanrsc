@@ -120,7 +120,6 @@ export async function bundle() {
 
     await write(ofile.path, ofile.text);
   }
-  console.log(serverActionsRefs);
 
   // bundle client components and bootstrap code for the client
   await esbuild.build({
@@ -155,25 +154,30 @@ export async function bundle() {
     ],
   });
 
-  for (let serverAction of serverActionsRefs) {
-    const [filepath, actionName] = serverAction.split("#");
-    write(
-      resolveBuild(`client/app/${filepath}`),
-      `
-      export function ${actionName}(...args) {
-        return fetch('/server-action?file=${filepath}&action=${actionName}', {
-          method: 'POST',
-          body: JSON.stringify(args)
-        }).then(res => res.json())
-      }
-    `
-    );
+  const serverActionsMap: Map<string, Set<string>> = new Map();
+  serverActionsRefs.forEach((ref) => {
+    const [filepath, actionName] = ref.split("#");
+    if (!serverActionsMap.has(filepath))
+      serverActionsMap.set(filepath, new Set());
+    serverActionsMap.get(filepath)!.add(actionName);
+  });
+
+  for (let [filepath, actions] of serverActionsMap) {
+    let contents = "";
+    actions.forEach((actionName) => {
+      contents += `
+        export function ${actionName}(...args) {
+          return fetch('/server-action?file=${filepath}&action=${actionName}', {
+            method: 'POST',
+            body: JSON.stringify(args)
+          }).then(res => res.json())
+        }
+      `;
+    });
+    write(resolveBuild(`client/app/${filepath}`), contents);
   }
 
-  return {
-    ...(await import(resolveBuild("server/App.js"))),
-    actions: serverActionsRefs,
-  };
+  return import(resolveBuild("server/App.js"));
 }
 
 function resolveApp(path = "") {
