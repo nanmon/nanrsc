@@ -25,6 +25,10 @@ interface OperationMap {
     jsx: ReactElement,
     next: (jsx: ReactNode) => Promise<ReactNode>
   ) => Promise<ReactNode>;
+  suspense: (
+    jsx: ReactElement,
+    next: (jsx: ReactNode) => Promise<ReactNode>
+  ) => Promise<ReactNode>;
 }
 
 export const defaultOperations: OperationMap = {
@@ -43,14 +47,9 @@ export const defaultOperations: OperationMap = {
     ...jsx,
     props: await next(jsx.props),
   }),
-  server: async (jsx, next) => {
-    const returnedJsx = await (jsx.type as any)(jsx.props);
-    return next(returnedJsx);
-  },
-  client: async (jsx, next) => ({
-    ...jsx,
-    props: await next(jsx.props),
-  }),
+  server: async (jsx, next) => defaultOperations.native(jsx, next),
+  client: async (jsx, next) => defaultOperations.native(jsx, next),
+  suspense: async (jsx, next) => defaultOperations.native(jsx, next),
 };
 
 export async function crawl(
@@ -84,6 +83,9 @@ export async function crawl(
         }
         return operations.client(jsx, next);
       }
+      if (jsx.type === Symbol.for("react.suspense")) {
+        return operations.suspense(jsx, next);
+      }
       throw new Error("not implemented.");
 
     case jsx != null && typeof jsx === "object":
@@ -95,4 +97,60 @@ export async function crawl(
     default:
       throw new Error("not implemented");
   }
+}
+
+export async function resolveAsyncComponent(
+  jsx: ReactElement,
+  next: (jsx: ReactNode) => Promise<ReactNode>
+): Promise<ReactNode> {
+  const returnedJsx = await (jsx.type as any)(jsx.props);
+  return next(returnedJsx);
+}
+
+export async function serializeClientComponent(
+  jsx: ReactElement,
+  next: (jsx: ReactNode) => Promise<ReactNode>
+): Promise<ReactNode> {
+  return {
+    ...jsx,
+    type: (jsx.type as any).$$id,
+    props: await next(jsx.props),
+  };
+}
+
+export async function serializeSuspense(
+  jsx: ReactElement,
+  next: (jsx: ReactNode) => Promise<ReactNode>
+): Promise<ReactNode> {
+  return {
+    ...jsx,
+    type: jsx.type.toString().toLowerCase(),
+    props: await next(jsx.props),
+  };
+}
+
+export async function deserialize(
+  jsx: ReactElement,
+  next: (jsx: ReactNode) => Promise<ReactNode>
+): Promise<ReactNode> {
+  if (jsx.type.toString() === "symbol(react.suspense)") {
+    return {
+      ...((await defaultOperations.native(jsx, next)) as ReactElement),
+      type: Symbol.for("react.suspense"),
+      $$typeof: Symbol.for("react.element"),
+    } as unknown as ReactElement;
+  }
+  if (!jsx.type.toString().includes("#"))
+    return {
+      ...((await defaultOperations.native(jsx, next)) as ReactElement),
+      $$typeof: Symbol.for("react.element"),
+    } as ReactElement;
+  const [file, importKey] = jsx.type.toString().split("#");
+  const Component = (await import(file))[importKey];
+  return {
+    ...jsx,
+    $$typeof: Symbol.for("react.element"),
+    type: Component,
+    props: await next(jsx.props),
+  } as ReactNode;
 }

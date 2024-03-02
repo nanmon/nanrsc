@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Link } from "../lib/Link";
 import { Wrapper } from "./ButtonWrapper";
 import { NewAlbumButton } from "./NewAlbumButton";
@@ -21,16 +22,16 @@ export function App({ request }: { request: Request }) {
         />
       </head>
       <body>
-        {/* <Suspense fallback={<p>Loading...</p>}> */}
         {url.pathname === "/" ? (
           <Link href="/albums">Albums</Link>
         ) : (
           <Link href="/">Home</Link>
         )}
         <h1>{url.pathname}</h1>
-        {/* @ts-expect-error */}
-        <Albums />
-        {/* </Suspense> */}
+        <Suspense fallback={<p>Loading...</p>}>
+          {/* @ts-expect-error */}
+          <Albums />
+        </Suspense>
         <NewAlbumButton />
       </body>
     </html>
@@ -54,7 +55,7 @@ async function Albums() {
 }
 
 async function getAlbums() {
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  // await new Promise((resolve) => setTimeout(resolve, 3000));
   return [
     {
       id: 1,

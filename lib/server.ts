@@ -1,7 +1,12 @@
 import { renderToReadableStream } from "react-dom/server";
 import { file } from "bun";
 import { bundle } from "./bundler";
-import { crawl } from "./react-tree-crawler";
+import {
+  crawl,
+  resolveAsyncComponent,
+  serializeClientComponent,
+  serializeSuspense,
+} from "./crawler";
 import { createElement } from "react";
 import { URL } from "node:url";
 
@@ -32,15 +37,14 @@ function serveStatic(url: URL) {
 
 async function renderApp(request: Request, url: URL) {
   // resolve async components
-  const resolvedApp = await crawl(createElement(App, { request }));
+  const resolvedApp = await crawl(createElement(App, { request }), {
+    server: resolveAsyncComponent,
+  });
 
   // jsx json to send to client
   const serializedApp = await crawl(resolvedApp, {
-    client: async (jsx, next) => ({
-      ...jsx,
-      type: (jsx.type as any).$$id,
-      props: await next(jsx.props),
-    }),
+    client: serializeClientComponent,
+    suspense: serializeSuspense,
   });
 
   const stringifiedApp = JSON.stringify(serializedApp, function (key, value) {
