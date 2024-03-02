@@ -1,3 +1,4 @@
+import { Link } from "../lib/Link";
 import { Wrapper } from "./ButtonWrapper";
 import { NewAlbumButton } from "./NewAlbumButton";
 import { Button } from "./share/Button";
@@ -7,7 +8,7 @@ export function App({ request }: { request: Request }) {
   return (
     <html>
       <head>
-        <title>Hell world</title>
+        <title>{url.pathname}</title>
         <style
           dangerouslySetInnerHTML={{
             __html: `
@@ -21,6 +22,11 @@ export function App({ request }: { request: Request }) {
       </head>
       <body>
         {/* <Suspense fallback={<p>Loading...</p>}> */}
+        {url.pathname === "/" ? (
+          <Link href="/albums">Albums</Link>
+        ) : (
+          <Link href="/">Home</Link>
+        )}
         <h1>{url.pathname}</h1>
         {/* @ts-expect-error */}
         <Albums />

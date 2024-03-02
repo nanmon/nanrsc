@@ -15,7 +15,7 @@ const server = Bun.serve({
     if (url.pathname === "/server-action") {
       return callServerAction(req, url);
     }
-    return renderApp(req);
+    return renderApp(req, url);
   },
 });
 
@@ -30,7 +30,7 @@ function serveStatic(url: URL) {
   });
 }
 
-async function renderApp(request: Request) {
+async function renderApp(request: Request, url: URL) {
   // resolve async components
   const resolvedApp = await crawl(createElement(App, { request }));
 
@@ -48,6 +48,14 @@ async function renderApp(request: Request) {
     if (key === "_store") return { validated: true }; // remove all 'missing key' warnings ¯\_(ツ)_/¯
     return value;
   });
+
+  if (url.searchParams.has("jsx")) {
+    return new Response(stringifiedApp, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  }
 
   try {
     const stream = await renderToReadableStream(resolvedApp, {

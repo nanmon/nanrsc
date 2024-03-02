@@ -18,7 +18,7 @@ export async function bundle() {
     logLevel: "error",
     entryPoints: [resolveApp("App.tsx")],
     outdir: resolveBuild("server"),
-    outbase: resolveApp(),
+    outbase: resolveApp(".."),
     packages: "external",
     plugins: [makePlugin("use client", clientEntryPoints)],
   });
@@ -31,7 +31,7 @@ export async function bundle() {
     logLevel: "error",
     entryPoints: [...clientEntryPoints],
     outdir: resolveBuild("server"),
-    outbase: resolveApp(),
+    outbase: resolveApp(".."),
     write: false,
     packages: "external",
     plugins: [makePlugin("use server", serverEntryPoints)],
@@ -43,7 +43,7 @@ export async function bundle() {
     let newContents = ofile.text;
 
     exports.forEach((exp) => {
-      const key = `/.build/client/app/${relative(
+      const key = `/.build/client/${relative(
         resolveBuild("server"),
         ofile.path
       )}#${exp.n}`;
@@ -63,7 +63,7 @@ export async function bundle() {
     logLevel: "error",
     entryPoints: [...serverEntryPoints],
     outdir: resolveBuild("server"),
-    outbase: resolveApp(),
+    outbase: resolveApp(".."),
     write: false,
     packages: "external",
   });
@@ -113,10 +113,10 @@ export async function bundle() {
         }
       `;
     });
-    write(resolveBuild(`client/app/${filepath}`), contents);
+    write(resolveBuild(`client/${filepath}`), contents);
   }
 
-  return import(resolveBuild("server/App.js"));
+  return import(resolveBuild("server/app/App.js"));
 }
 
 function resolveApp(path = "") {
@@ -132,9 +132,13 @@ function resolveBuild(path = "") {
 }
 
 function sourceFile(path: string) {
-  const f = file(`${path}.ts`);
+  let f = file(`${path}.ts`);
   if (f.size > 0) return f;
-  return file(`${path}.tsx`);
+  f = file(`${path}.tsx`);
+  if (f.size > 0) return f;
+  f = file(`${path}.js`);
+  if (f.size > 0) return f;
+  return file(`${path}.jsx`);
 }
 
 function makePlugin(
@@ -147,8 +151,10 @@ function makePlugin(
       build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
         const path = resolveApp(relativePath);
         const file = sourceFile(path);
-        if (file.size === 0) return; // not in app
-        const contents = await sourceFile(path).text();
+        if (file.size === 0) {
+          return; // idk, do nothing
+        }
+        const contents = await file.text();
         if (
           contents.startsWith(`'${exclude}'`) ||
           contents.startsWith(`"${exclude}"`)

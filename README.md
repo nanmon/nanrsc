@@ -5,9 +5,9 @@ Naive implementation of react server components.
 ## Features
 
 - [x] Server Components (async and not async)
-- [x] Client Components ('use client')
 - [x] Server Actions
-- [ ] Router
+- [x] Client Components ('use client')
+- [x] Client side routing
 
 ## Install and run
 
