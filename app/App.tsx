@@ -2,7 +2,8 @@ import { Wrapper } from "./ButtonWrapper";
 import { NewAlbumButton } from "./NewAlbumButton";
 import { Button } from "./share/Button";
 
-export function App() {
+export function App({ request }: { request: Request }) {
+  const url = new URL(request.url);
   return (
     <html>
       <head>
@@ -20,7 +21,7 @@ export function App() {
       </head>
       <body>
         {/* <Suspense fallback={<p>Loading...</p>}> */}
-        <h1>My Albums</h1>
+        <h1>{url.pathname}</h1>
         {/* @ts-expect-error */}
         <Albums />
         {/* </Suspense> */}

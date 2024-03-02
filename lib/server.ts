@@ -30,9 +30,9 @@ function serveStatic(url: URL) {
   });
 }
 
-async function renderApp(req: Request) {
+async function renderApp(request: Request) {
   // resolve async components
-  const resolvedApp = await crawl(createElement(App));
+  const resolvedApp = await crawl(createElement(App, { request }));
 
   // jsx json to send to client
   const serializedApp = await crawl(resolvedApp, {
@@ -67,8 +67,10 @@ async function callServerAction(req: Request, url: URL) {
   const args = (await req.json()) as any[];
   const filepath = url.searchParams.get("file");
   const actionName = url.searchParams.get("action")!;
-  const action = (await import(`../.build/server/${filepath}`))[actionName];
-  const body = await action(...args);
+  const action: Function = (await import(`../.build/server/${filepath}`))[
+    actionName
+  ];
+  const body = await action.bind(req)(...args);
   return new Response(JSON.stringify(body), {
     headers: {
       "Content-Type": "application/json",
