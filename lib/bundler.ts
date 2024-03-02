@@ -20,27 +20,7 @@ export async function bundle() {
     outdir: resolveBuild("server"),
     outbase: resolveApp(),
     packages: "external",
-    plugins: [
-      {
-        name: "@ben-holmes/resolve-client-imports",
-        setup(build) {
-          build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
-            const path = resolveApp(relativePath);
-            const contents = await sourceFile(path).text();
-            if (
-              contents.startsWith(`'use client'`) ||
-              contents.startsWith(`"use client"`)
-            ) {
-              clientEntryPoints.add(path);
-              return {
-                external: true,
-                path: relativePath,
-              };
-            }
-          });
-        },
-      },
-    ],
+    plugins: [makePlugin("use client", clientEntryPoints)],
   });
 
   const serverEntryPoints = new Set<string>();
@@ -54,27 +34,7 @@ export async function bundle() {
     outbase: resolveApp(),
     write: false,
     packages: "external",
-    plugins: [
-      {
-        name: "resolve-server-imports",
-        setup(build) {
-          build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
-            const path = resolveApp(relativePath);
-            const contents = await sourceFile(path).text();
-            if (
-              contents.startsWith(`'use server'`) ||
-              contents.startsWith(`"use server"`)
-            ) {
-              serverEntryPoints.add(path);
-              return {
-                external: true,
-                path: relativePath,
-              };
-            }
-          });
-        },
-      },
-    ],
+    plugins: [makePlugin("use server", serverEntryPoints)],
   });
 
   // add identifiers to client component functions
@@ -129,29 +89,7 @@ export async function bundle() {
     entryPoints: [resolveLib("bootstrap.client.jsx"), ...clientEntryPoints],
     outdir: resolveBuild("client"),
     splitting: true,
-    plugins: [
-      {
-        name: "resolve-server-imports",
-        setup(build) {
-          build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
-            const path = resolveApp(relativePath);
-            const file = sourceFile(path);
-            if (file.size === 0) return; // not in /app
-            const contents = await file.text();
-            if (
-              contents.startsWith(`'use server'`) ||
-              contents.startsWith(`"use server"`)
-            ) {
-              // serverEntryPoints.add(path);
-              return {
-                external: true,
-                path: `${relativePath}.js`,
-              };
-            }
-          });
-        },
-      },
-    ],
+    plugins: [makePlugin("use server")],
   });
 
   const serverActionsMap: Map<string, Set<string>> = new Map();
@@ -162,6 +100,7 @@ export async function bundle() {
     serverActionsMap.get(filepath)!.add(actionName);
   });
 
+  // replace server actions with fetch calls
   for (let [filepath, actions] of serverActionsMap) {
     let contents = "";
     actions.forEach((actionName) => {
@@ -196,4 +135,31 @@ function sourceFile(path: string) {
   const f = file(`${path}.ts`);
   if (f.size > 0) return f;
   return file(`${path}.tsx`);
+}
+
+function makePlugin(
+  exclude: "use client" | "use server",
+  pickup?: Set<string>
+) {
+  return {
+    name: "@ben-holmes/resolve-client-imports",
+    setup(build: esbuild.PluginBuild) {
+      build.onResolve({ filter: /^\./ }, async ({ path: relativePath }) => {
+        const path = resolveApp(relativePath);
+        const file = sourceFile(path);
+        if (file.size === 0) return; // not in app
+        const contents = await sourceFile(path).text();
+        if (
+          contents.startsWith(`'${exclude}'`) ||
+          contents.startsWith(`"${exclude}"`)
+        ) {
+          pickup?.add(path);
+          return {
+            external: true,
+            path: `${relativePath}.js`,
+          };
+        }
+      });
+    },
+  };
 }
